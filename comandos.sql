@@ -129,3 +129,103 @@ select * from student s
 where name like 'Maria%'
 or name like 'Diego'
 or name like 'E%'
+
+---Chaves primárias
+create table alunos (
+	id SERIAL primary key,
+	nome VARCHAR(255) not NULL
+);
+
+insert into alunos (nome) values ('Carlos');
+insert into alunos (nome) values ('JOsé');
+
+select * from alunos
+
+create table cursos (
+	id SERIAL primary key,
+	nome VARCHAR(255) not null
+)
+
+insert into cursos (nome) values ('Java');
+insert into cursos (nome) values ('TypeScript');
+
+select * from cursos
+
+-- Primary key composta
+create table alunos_cursos (
+	aluno_id INTEGER,
+	curso_id INTEGER,
+	primary key (aluno_id, curso_id)
+)
+
+insert into alunos_cursos (aluno_id, curso_id) values (1,1);
+insert into alunos_cursos (aluno_id, curso_id) values (2,1);
+
+select * from alunos_cursos 
+	
+-- Foreing key
+create table alunos_cursos (
+	aluno_id INTEGER,
+	curso_id INTEGER,
+	primary key (aluno_id, curso_id),
+	foreign key (aluno_id) references alunos (id),
+	foreign key (curso_id) references cursos (id)
+)
+
+insert into alunos_cursos (aluno_id, curso_id) values (1,1);
+insert into alunos_cursos (aluno_id, curso_id) values (2,1);
+
+select * from alunos_cursos 
+
+--- Joins
+select * from alunos 
+join alunos_cursos 
+on alunos_cursos.aluno_id = alunos.id
+join cursos 
+on cursos.id = alunos_cursos.curso_id
+
+insert into alunos_cursos (aluno_id, curso_id) values (2,2);
+
+select alunos.nome as alunos,
+	   cursos.nome as cursos
+from alunos 
+join alunos_cursos 
+on alunos_cursos.aluno_id = alunos.id
+join cursos 
+on cursos.id = alunos_cursos.curso_id
+
+-- Left join
+insert into alunos (nome) values ('Mário');
+insert into cursos (nome) values ('Python')
+
+select alunos.nome as alunos,
+	   cursos.nome as cursos
+from alunos 
+left join alunos_cursos 
+on alunos_cursos.aluno_id = alunos.id
+left join cursos 
+on cursos.id = alunos_cursos.curso_id
+
+-- Right join
+select alunos.nome as alunos,
+	   cursos.nome as cursos
+from alunos 
+right join alunos_cursos 
+on alunos_cursos.aluno_id = alunos.id
+right join cursos 
+on cursos.id = alunos_cursos.curso_id
+
+-- Full join
+select alunos.nome as alunos,
+	   cursos.nome as cursos
+from alunos 
+full join alunos_cursos 
+on alunos_cursos.aluno_id = alunos.id
+full join cursos 
+on cursos.id = alunos_cursos.curso_id
+
+-- Cross join 
+select alunos.nome as "Nome do aluno",
+	   cursos.nome as "Nome do curso"
+from alunos
+cross join cursos
