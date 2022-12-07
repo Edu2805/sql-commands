@@ -153,3 +153,36 @@ begin
 	commit;
 
 select * from teste.cursos_programacao cp 
+
+
+--- Criar um id sequencial (postgres já faz isso por de trás dos panos)
+create sequence sequencia; -- da inicio a sequencia
+
+select nextval('sequencia'); -- avança na sequencia
+
+select currval('sequencia'); -- mostra a sequencia atual
+
+create temporary table auto (
+	id integer primary key default nextval('sequencia'), -- insere o nextval
+	nome varchar(30) not null
+);
+
+insert into auto (nome) values ('Teste auto');
+
+select * from auto -- Obs: se o sequence já rodou individualmente, a sequencia irá começar de onde parou a ultima execução do sequence
+
+
+--- Criar tipo ENUM
+create type CLASSIFICACAO
+as enum ('LIVRE', '12_ANOS', '14_ANOS', '16_ANOS', '18_ANOS');
+
+
+create temporary table filme (
+	id serial primary key,
+	nome varchar(255) not null,
+	classificacao CLASSIFICACAO
+);
+
+insert into filme (nome, classificacao) values ('Um filme', '14_ANOS');
+
+select * from filme
