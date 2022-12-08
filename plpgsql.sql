@@ -251,3 +251,199 @@ create or replace function salario_ok(id_instrutor integer) returns varchar as $
 $$ language plpgsql;
 
 select nome, salario_ok(instrutor.id) from instrutor;
+
+--- Estruturas de repetição usando o next(setof - conjunto de inteiros)
+drop function tabuada;
+create or replace function tabuada(numero integer) returns setof integer as $$
+	declare
+	begin
+		
+		return next numero * 1;
+		return next numero * 2;
+		return next numero * 3;
+		return next numero * 4;
+		return next numero * 5;
+		return next numero * 6;
+		return next numero * 7;
+		return next numero * 8;
+		return next numero * 9;
+		return next numero * 10;
+	end;
+	
+$$ language plpgsql;
+
+select tabuada(2);
+
+--- Estruturas de repetição usando o loop(setof - conjunto de inteiros)
+drop function tabuada;
+create or replace function tabuada(numero integer) returns setof integer as $$
+	declare
+		multiplicador integer default 1;
+	begin
+		loop
+			return next numero * multiplicador;
+			multiplicador := multiplicador + 1;
+			exit when multiplicador = 11;
+		end loop;
+	end;
+	
+$$ language plpgsql;
+
+select tabuada(2);
+
+--- Formatando a saída (9 x 1 = 9)
+drop function tabuada;
+create or replace function tabuada(numero integer) returns setof varchar as $$
+	declare
+		multiplicador integer default 1;
+	begin
+		loop
+			return next numero || ' * ' || multiplicador || ' = ' || numero * multiplicador;
+			multiplicador := multiplicador + 1;
+			exit when multiplicador = 11;
+		end loop;
+	end;
+	
+$$ language plpgsql;
+
+select tabuada(2);
+
+--- Estruturas de repetição usando o while loop(setof - conjunto de inteiros)
+drop function tabuada;
+create or replace function tabuada(numero integer) returns setof varchar as $$
+	declare
+		multiplicador integer default 1;
+	begin
+		while multiplicador <= 10 loop
+			return next numero || ' * ' || multiplicador || ' = ' || numero * multiplicador;
+			multiplicador := multiplicador + 1;
+		end loop;
+	end;
+	
+$$ language plpgsql;
+
+select tabuada(2);
+
+--- Estruturas de repetição usando o for in loop(setof - conjunto de inteiros)
+drop function tabuada;
+create or replace function tabuada(numero integer) returns setof varchar as $$
+	begin
+		for multiplicador in 1..10 loop
+			return next numero || ' * ' || multiplicador || ' = ' || numero * multiplicador;
+		end loop;
+	end;
+	
+$$ language plpgsql;
+
+select tabuada(5);
+
+--- Ciando um loop em uma query e chamando uma plpgsql dentro de outra (salario_ok)
+drop function instrutor_com_salario;
+create or replace function instrutor_com_salario(out nome varchar, out salario_ok varchar) returns setof record as $$
+	declare 
+		instrutor instrutor;
+	begin 
+		for instrutor in select * from instrutor loop
+			nome := instrutor.nome;
+			salario_ok = salario_ok(instrutor.id);
+			return next;
+		end loop;
+	end;
+$$ language plpgsql;
+
+select * from instrutor_com_salario();
+
+---- Inserindo valores nas tabelas com funcoes
+
+CREATE TABLE aluno (
+    id SERIAL PRIMARY KEY,
+	primeiro_nome VARCHAR(255) NOT NULL,
+	ultimo_nome VARCHAR(255) NOT NULL,
+	data_nascimento DATE NOT NULL
+);
+
+CREATE TABLE categoria (
+    id SERIAL PRIMARY KEY,
+	nome VARCHAR(255) NOT NULL UNIQUE
+);
+
+CREATE TABLE curso (
+    id SERIAL PRIMARY KEY,
+	nome VARCHAR(255) NOT NULL,
+	categoria_id INTEGER NOT NULL REFERENCES categoria(id)
+);
+
+CREATE TABLE aluno_curso (
+	aluno_id INTEGER NOT NULL REFERENCES aluno(id),
+	curso_id INTEGER NOT NULL REFERENCES curso(id),
+	PRIMARY KEY (aluno_id, curso_id)
+);
+
+-- usando o found (verifica se algum resultado foi retornado pela query)
+create function cria_curso(nome_curso varchar, nome_categoria varchar) returns void as $$
+	declare
+		id_categoria integer;
+	begin
+		select id into id_categoria from categoria where nome = nome_categoria;
+	
+		if not found then
+			insert into categoria (nome) values (nome_categoria) returning id into id_categoria;
+		end if;
+		
+		insert into curso (nome, categoria_id) values (nome_curso, id_categoria);
+	end;
+$$ language plpgsql;
+
+select cria_curso('PHP', 'Programação');
+select cria_curso('Java', 'Programação');
+select cria_curso('PHP', 'Programação');
+select cria_curso('PHP', 'Programação');
+
+select * from curso;
+select * from categoria;
+
+/**
+ * Inserindo dados na tabela instrutores, lógica para verificar se o salário for maior que a média, 
+ * salva um log e salva outro log dizendo que fulano recebe mais de x% da grade de instrutores
+ */
+
+create table log_instrutores (
+	id serial primary key,
+	informacao varchar(255),
+	momento_criado timestamp default current_timestamp
+);
+
+create or replace function cria_instrutor (nome_instrutor varchar, salario_instrutor decimal) returns void as $$
+	declare 
+		id_instrutor_inserido integer;
+		media_salarial decimal;
+		instrutores_recebem_menos integer default 0;
+		total_instrutores integer default 0;
+		salario decimal;
+		percentual decimal;
+	begin 
+		insert into instrutor (nome, salario) values (nome_instrutor, salario_instrutor) returning id into id_instrutor_inserido;
+	
+		select avg(instrutor.salario) into media_salarial from instrutor where id <> id_instrutor_inserido;
+		if salario_instrutor > media_salarial then
+			insert into log_instrutores (informacao) values (nome_instrutor || ' recebe acima da média');
+		end if;
+	
+		for salario in select instrutor.salario from instrutor where id <> id_instrutor_inserido loop
+			total_instrutores := total_instrutores + 1;
+			
+			if salario_instrutor > salario then
+				instrutores_recebem_menos := instrutores_recebem_menos + 1;
+			end if;
+		end loop;
+	
+		percentual = instrutores_recebem_menos::decimal / total_instrutores::decimal * 100;
+	
+		insert into log_instrutores (informacao) 
+			values (nome_instrutor || ' recebe mais do que ' || percentual || '% da grade de instrutores');
+	end;
+$$ language plpgsql;
+
+select * from instrutor i;
+select cria_instrutor('Carlos', 400);
+select * from log_instrutores;
