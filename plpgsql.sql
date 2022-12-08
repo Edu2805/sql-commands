@@ -420,7 +420,7 @@ create or replace function cria_instrutor (nome_instrutor varchar, salario_instr
 		instrutores_recebem_menos integer default 0;
 		total_instrutores integer default 0;
 		salario decimal;
-		percentual decimal;
+		percentual decimal(5, 2);
 	begin 
 		insert into instrutor (nome, salario) values (nome_instrutor, salario_instrutor) returning id into id_instrutor_inserido;
 	
@@ -447,3 +447,89 @@ $$ language plpgsql;
 select * from instrutor i;
 select cria_instrutor('Carlos', 400);
 select * from log_instrutores;
+
+--- Evitando que seja feito um insert sem executada a funcao, sem passar pelos logs usando Triggers
+-- editando a funcao anterior
+drop function cria_instrutor;
+
+create or replace function cria_instrutor () returns trigger as $$
+	declare 
+		media_salarial decimal;
+		instrutores_recebem_menos integer default 0;
+		total_instrutores integer default 0;
+		salario decimal;
+		percentual decimal(5, 2);
+	begin 
+		select avg(instrutor.salario) into media_salarial from instrutor where id <> new.id;
+	
+		if new.salario > media_salarial then
+			insert into log_instrutores (informacao) values (new.nome || ' recebe acima da média');
+		end if;
+	
+		for salario in select instrutor.salario from instrutor where id <> new.id loop
+			total_instrutores := total_instrutores + 1;
+			
+			if new.salario > salario then
+				instrutores_recebem_menos := instrutores_recebem_menos + 1;
+			end if;
+		end loop;
+	
+		percentual = instrutores_recebem_menos::decimal / total_instrutores::decimal * 100;
+	
+		insert into log_instrutores (informacao) 
+			values (new.nome || ' recebe mais do que ' || percentual || '% da grade de instrutores');
+		
+		return new;
+	end;
+$$ language plpgsql;
+
+-- criando uma trigger
+create trigger cria_log_instrutores after insert on instrutor 
+	for each row execute function cria_instrutor();
+
+-- inserindo dados na tabela instrutor onde irá disparar a trigger pra criar os logs
+select * from log_instrutores;
+select * from instrutor i;
+
+insert into instrutor (nome, salario) values ('Charles', 700);
+
+--- Otimizando os logs (caso alguma coisa acontecer no meio do caminho, rollback)
+-- O postgres faz begin, commit e rollback sozinho
+create or replace function cria_instrutor () returns trigger as $$
+	declare 
+		media_salarial decimal;
+		instrutores_recebem_menos integer default 0;
+		total_instrutores integer default 0;
+		salario decimal;
+		percentual decimal(5, 2);
+	begin 
+		select avg(instrutor.salario) into media_salarial from instrutor where id <> new.id;
+	
+		if new.salario > media_salarial then
+			insert into log_instrutores (informacao) values (new.nome || ' recebe acima da média');
+		end if;
+	
+		for salario in select instrutor.salario from instrutor where id <> new.id loop
+			total_instrutores := total_instrutores + 1;
+			
+			if new.salario > salario then
+				instrutores_recebem_menos := instrutores_recebem_menos + 1;
+			end if;
+		end loop;
+	
+		percentual = instrutores_recebem_menos::decimal / total_instrutores::decimal * 100;
+	
+		insert into log_instrutores (informacao) 
+			values (new.nome || ' recebe mais do que ' || percentual || '% da grade de instrutores');
+		
+		return new;
+	end;
+$$ language plpgsql;
+
+select * from log_instrutores;
+select * from instrutor i;
+
+-- postgres faz sozinho
+begin;
+insert into instrutor (nome, salario) values ('Guimaraes', 600);
+rollback;
