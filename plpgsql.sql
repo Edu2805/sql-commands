@@ -222,7 +222,7 @@ create or replace function salario_ok(id_instrutor integer) returns varchar as $
 				return 'Salário ok';
 			else
 				return 'Salário ótimo';
-			end case;
+		end case;
 	end;
 	
 $$ language plpgsql;
@@ -533,3 +533,272 @@ select * from instrutor i;
 begin;
 insert into instrutor (nome, salario) values ('Guimaraes', 600);
 rollback;
+
+--- Capturar erros
+create or replace function cria_instrutor () returns trigger as $$
+	declare 
+		media_salarial decimal;
+		instrutores_recebem_menos integer default 0;
+		total_instrutores integer default 0;
+		salario decimal;
+		percentual decimal(5, 2);
+	begin 
+		select avg(instrutor.salario) into media_salarial from instrutor where id <> new.id;
+	
+		if new.salario > media_salarial then
+			insert into log_instrutores (informacao) values (new.nome || ' recebe acima da média');
+		end if;
+	
+		for salario in select instrutor.salario from instrutor where id <> new.id loop
+			total_instrutores := total_instrutores + 1;
+			
+			if new.salario > salario then
+				instrutores_recebem_menos := instrutores_recebem_menos + 1;
+			end if;
+		end loop;
+	
+		percentual = instrutores_recebem_menos::decimal / total_instrutores::decimal * 100;
+	
+		insert into log_instrutores (informacao, teste) -- coluna que não existe pra forçar o erro, com o exception essa parte será ignorada
+			values (new.nome || ' recebe mais do que ' || percentual || '% da grade de instrutores');
+		
+		return new;
+	exception
+		when undefined_column then -- tipo do erro (pesquisar na documentacao do postgres)
+			return new; -- opcional
+		
+	end;
+$$ language plpgsql;
+
+select * from log_instrutores;
+select * from instrutor i;
+
+insert into instrutor (nome, salario) values ('Gilberto', 1500);
+
+--- Exibindo mensagem de erro para as exceções
+create or replace function cria_instrutor () returns trigger as $$
+	declare 
+		media_salarial decimal;
+		instrutores_recebem_menos integer default 0;
+		total_instrutores integer default 0;
+		salario decimal;
+		percentual decimal(5, 2);
+	begin 
+		select avg(instrutor.salario) into media_salarial from instrutor where id <> new.id;
+	
+		if new.salario > media_salarial then
+			insert into log_instrutores (informacao) values (new.nome || ' recebe acima da média');
+		end if;
+	
+		for salario in select instrutor.salario from instrutor where id <> new.id loop
+			total_instrutores := total_instrutores + 1;
+			
+			if new.salario > salario then
+				instrutores_recebem_menos := instrutores_recebem_menos + 1;
+			end if;
+		end loop;
+	
+		percentual = instrutores_recebem_menos::decimal / total_instrutores::decimal * 100;
+	
+		insert into log_instrutores (informacao, teste) -- coluna que não existe pra forçar o erro, com o exception essa parte será ignorada
+			values (new.nome || ' recebe mais do que ' || percentual || '% da grade de instrutores');
+		
+		return new;
+	exception
+		when undefined_column then -- tipo do erro (pesquisar na documentacao do postgres)
+			raise notice 'Atenção! Devido a um erro na função de inserção, registro não será inserido na tabela de logs! Consulte o administrador do DB.';
+			return new; -- opcional
+		
+	end;
+$$ language plpgsql;
+
+select * from log_instrutores;
+select * from instrutor i;
+
+insert into instrutor (nome, salario) values ('Ana Roberta', 1500);
+
+--- Exibindo mensagem de erro para as exceções e interrompendo a execução
+create or replace function cria_instrutor () returns trigger as $$
+	declare 
+		media_salarial decimal;
+		instrutores_recebem_menos integer default 0;
+		total_instrutores integer default 0;
+		salario decimal;
+		percentual decimal(5, 2);
+	begin 
+		select avg(instrutor.salario) into media_salarial from instrutor where id <> new.id;
+	
+		if new.salario > media_salarial then
+			insert into log_instrutores (informacao) values (new.nome || ' recebe acima da média');
+		end if;
+	
+		for salario in select instrutor.salario from instrutor where id <> new.id loop
+			total_instrutores := total_instrutores + 1;
+			
+			if new.salario > salario then
+				instrutores_recebem_menos := instrutores_recebem_menos + 1;
+			end if;
+		end loop;
+	
+		percentual = instrutores_recebem_menos::decimal / total_instrutores::decimal * 100;
+	
+		insert into log_instrutores (informacao, teste) -- coluna que não existe pra forçar o erro, com o exception essa parte será ignorada
+			values (new.nome || ' recebe mais do que ' || percentual || '% da grade de instrutores');
+		
+		return new;
+	exception
+		when undefined_column then -- tipo do erro (pesquisar na documentacao do postgres)
+			raise notice 'Atenção! Devido a um erro na função de inserção, registro não será inserido na tabela de logs! Consulte o administrador do DB.';
+			raise exception 'Falal error!'; -- interrompe o processo fazendo o rollback
+		
+	end;
+$$ language plpgsql;
+
+select * from log_instrutores;
+select * from instrutor i;
+
+insert into instrutor (nome, salario) values ('Jair', 1200);
+
+--- Cancelando a inserção de um instrutor caso o salário atinja um percentual
+drop trigger cria_log_instrutores on instrutor;
+
+create or replace function cria_instrutor () returns trigger as $$
+	declare 
+		media_salarial decimal;
+		instrutores_recebem_menos integer default 0;
+		total_instrutores integer default 0;
+		salario decimal;
+		percentual decimal(5, 2);
+	begin 
+		select avg(instrutor.salario) into media_salarial from instrutor where id <> new.id;
+	
+		if new.salario > media_salarial then
+			insert into log_instrutores (informacao) values (new.nome || ' recebe acima da média');
+		end if;
+	
+		for salario in select instrutor.salario from instrutor where id <> new.id loop
+			total_instrutores := total_instrutores + 1;
+			
+			if new.salario > salario then
+				instrutores_recebem_menos := instrutores_recebem_menos + 1;
+			end if;
+		end loop;
+	
+		percentual = instrutores_recebem_menos::decimal / total_instrutores::decimal * 100;
+		assert percentual < 100::decimal, 'Instrutores novos não podem receber mais do que os antigos'; -- lanca a condição pra barrar a insercao junto de uma mensagem
+	
+		insert into log_instrutores (informacao, teste) -- coluna que não existe pra forçar o erro, com o exception essa parte será ignorada
+			values (new.nome || ' recebe mais do que ' || percentual || '% da grade de instrutores');
+		
+		return new;
+	end;
+$$ language plpgsql;
+
+create trigger cria_log_instrutores before insert on instrutor 
+	for each row execute function cria_instrutor(); -- ANTES de inserir o instrutor, será feita a verificacao
+
+select * from log_instrutores;
+select * from instrutor i;
+
+insert into instrutor (nome, salario) values ('Jair José', 1600);
+
+--- "Debugar" a funcao com Raise notice passando as variáveis
+drop trigger cria_log_instrutores on instrutor;
+
+create or replace function cria_instrutor () returns trigger as $$
+	declare 
+		media_salarial decimal;
+		instrutores_recebem_menos integer default 0;
+		total_instrutores integer default 0;
+		salario decimal;
+		percentual decimal(5, 2);
+	begin 
+		select avg(instrutor.salario) into media_salarial from instrutor where id <> new.id;
+	
+		if new.salario > media_salarial then
+			insert into log_instrutores (informacao) values (new.nome || ' recebe acima da média');
+		end if;
+	
+		for salario in select instrutor.salario from instrutor where id <> new.id loop
+			total_instrutores := total_instrutores + 1;
+			
+			raise notice 'Salario inserido: % Salário do instrutor existente: %', new.salario, salario; -- insere na mensagem os valores do for para serem exibidos no console
+			if new.salario > salario then
+				instrutores_recebem_menos := instrutores_recebem_menos + 1;
+			end if;
+		end loop;
+	
+		percentual = instrutores_recebem_menos::decimal / total_instrutores::decimal * 100;
+		assert percentual < 100::decimal, 'Instrutores novos não podem receber mais do que os antigos'; -- lanca a condição pra barrar a insercao junto de uma mensagem
+	
+		insert into log_instrutores (informacao, teste) -- coluna que não existe pra forçar o erro, com o exception essa parte será ignorada
+			values (new.nome || ' recebe mais do que ' || percentual || '% da grade de instrutores');
+		
+		return new;
+	end;
+$$ language plpgsql;
+
+create trigger cria_log_instrutores before insert on instrutor 
+	for each row execute function cria_instrutor(); -- ANTES de inserir o instrutor, será feita a verificacao
+
+select * from log_instrutores;
+select * from instrutor i;
+
+insert into instrutor (nome, salario) values ('Jair José', 500);
+
+--- Cursores (encapsula uma query e melhora o desempenho da funcao) postgres já faz por de trás dos panos no for
+-- supondo que uma determinada query seja muito grande
+create function instrutores_internos(id_instrutor integer) returns refcursor as $$
+	declare
+		cursor_salario refcursor;
+	begin
+		open cursor_salario for select instrutor.salario 
+									from instrutor 
+									where id <> id_instrutor 
+									and salario > 0;
+		
+		return cursor_salario;
+	end;
+$$ language plpgsql;
+
+-- chamando o cursor na funcao principal
+create or replace function cria_instrutor () returns trigger as $$
+	declare 
+		media_salarial decimal;
+		instrutores_recebem_menos integer default 0;
+		total_instrutores integer default 0;
+		salario decimal;
+		percentual decimal(5, 2);
+		cursor_salario refcursor;
+	begin 
+		select avg(instrutor.salario) into media_salarial from instrutor where id <> new.id;
+	
+		if new.salario > media_salarial then
+			insert into log_instrutores (informacao) values (new.nome || ' recebe acima da média');
+		end if;
+	
+		select instrutores_internos(new.id) into cursor_salario;
+		loop
+			fetch cursor_salario into salario;
+			exit when not found;
+			total_instrutores := total_instrutores + 1;
+			
+			if new.salario > salario then
+				instrutores_recebem_menos := instrutores_recebem_menos + 1;
+			end if;
+		end loop;
+	
+		percentual = instrutores_recebem_menos::decimal / total_instrutores::decimal * 100;
+		assert percentual < 100::decimal, 'Instrutores novos não podem receber mais do que os antigos'; -- lanca a condição pra barrar a insercao junto de uma mensagem
+	
+		insert into log_instrutores (informacao, teste) -- coluna que não existe pra forçar o erro, com o exception essa parte será ignorada
+			values (new.nome || ' recebe mais do que ' || percentual || '% da grade de instrutores');
+		
+		return new;
+	end;
+$$ language plpgsql;
+
+select * from log_instrutores;
+select * from instrutor i;
+
+insert into instrutor (nome, salario) values ('Camila', 5000);
