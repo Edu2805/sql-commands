@@ -1,5 +1,18 @@
 --- Vacuum - Postgres já faz por de trás dos panos
 
+/*
+O Vacuum é um utilitário que deve ser usado pelo DBA como manutenção diária do Banco de Dados,
+ o qual precisa ser utilizado praticamente diariamente. No entanto, o vacuum existe devido 
+ ao controle exclusivo de transação que o postgreSQL possui: o MVCC. As duas principais 
+ operações realizadas por essa ferramenta são:
+
+1- Recuperar espaço em disco devido a registros atualizados ou deletados;
+2- Atualizar as estatísticas utilizadas pelo otimizador para determinar o modo mais 
+eficiente de executar uma conusulta no PostgreSQL.
+
+mais detalhes em: https://www.devmedia.com.br/otimizacao-uma-ferramenta-chamada-vacuum/1710#:~:text=O%20Vacuum%20%C3%A9%20um%20utilit%C3%A1rio,o%20postgreSQL%20possui%3A%20o%20MVCC.
+*/
+
 DROP TABLE instrutor;
 CREATE TABLE instrutor (
     id SERIAL PRIMARY KEY,
@@ -87,4 +100,35 @@ deixando a query mais custosa. Use índices com moderação.
 Sempre que eu inserir, atualizar ou remover um registro, os índices precisar ser reorganizados. 
 Isso custa tempo e processamento.
 */
+
+--- Criando usuário
+
+create user teste;
+
+/* especificar no arquivo pg_hba.conf para dar os acessos ao usuário "teste"
+ * 
+ */
+
+--- Criando roles
+create role acesso;
+/* especificar no arquivo pg_hba.conf para dar os acessos a role "acesso"
+ * 
+ */
+
+--- Deletando uma role
+drop role acesso;
+
+--- Criando um usuário e definindo a senha
+create user carlos password '123456';
+
+/* mais detalhes: https://www.postgresql.org/docs/current/app-createuser.html
+ * 
+ */
+
+--- Revogar acesso de usuário específico
+-- revogando tudo do usuário carlos
+revoke all on database modelagem_dados from carlos;
+
+--- Garantir permissáo de um select para o usuário carlos
+grant select on schema_name.table_name to user_name;
 
