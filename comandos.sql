@@ -701,3 +701,28 @@ on alunos_cursos.aluno_id = cursos.id
 left join alunos on alunos.id = alunos_cursos.aluno_id
 group by 1
 having count (alunos.id) > 0
+
+/*
+O comando TRUNCATE remove rapidamente todas as linhas de um conjunto de tabelas. Possui o mesmo efeito do comando DELETE 
+não qualificado (sem a cláusula WHERE), mas como na verdade não varre a tabela é mais rápido. É mais útil em tabelas grandes.
+*/
+
+truncate test_01.department cascade;
+
+truncate test_01.employee cascade;
+
+truncate test_01.establishment cascade;  
+
+truncate test_01.job_position cascade;  
+
+truncate test_01.main_section cascade; 
+
+truncate test_01.person cascade; 
+
+truncate test_01.product_data cascade;  
+
+truncate test_01.salary cascade; 
+
+truncate test_01.subsection cascade; 
+
+truncate test_01.user_data cascade;
